@@ -1,0 +1,51 @@
+stages:
+  - test
+  - build
+  - deploy
+
+test_job:
+  stage: test
+  image: python:3.11
+  script:
+    - pip install -r requirements.txt
+    - python -c "import sys; print('PYTHONPATH:', sys.path)"
+    - pytest -v
+  artifacts:
+    reports:
+      junit: report.xml
+    paths:
+      - report.xml
+
+build_job:
+  stage: build
+  image: python:3.11
+  script:
+    - python -m zipfile -c app.zip app.py
+  artifacts:
+    paths:
+      - app.zip
+
+deploy_job:
+  stage: deploy
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+    
+
+  environment:
+    name: demo-k3s
+    kubernetes:
+      agent: k3s-demo
+
+  script:
+    - echo "KUBECONFIG is $KUBECONFIG"
+    - kubectl config use-context demo-app/demo-app:k3s-demo
+    - kubectl get nodes
+    - kubectl apply --validate=false -f k3s/configmap.yaml
+    - kubectl apply --validate=false -f k3s/deployment.yaml
+    - kubectl apply --validate=false -f k3s/service.yaml
+
+  only:
+    - main
+
+
